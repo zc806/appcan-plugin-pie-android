@@ -2,15 +2,17 @@ package com.uexPie;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.zywx.wbpalmstar.engine.EBrowserView;
 import org.zywx.wbpalmstar.engine.universalex.EUExBase;
-
-import com.uexPie.bean.PieBean;
 
 import android.app.Activity;
 import android.app.ActivityGroup;
@@ -19,27 +21,31 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.DisplayMetrics;
 import android.view.Display;
+import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
+import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
+
+import com.uexPie.bean.PieBean;
 
 public class EUExPie extends EUExBase {
 	static String opID = "0";
 	static final String functionName = "uexPie.loadData";
 	static final String cbOpenFunName = "uexPie.cbOpen";
-	private Activity mainActivity;
 	private PieActivity pieContext;
 	public static final String TAG = "uexPie";
-	private View theview;
 
 	private int startX = 0;
 	private int startY = 0;
 	public static int screenWidth = 0;
 	public static int screenHeight = 0;
+	
+	private Map<String, View> map_activity;
 
 	public EUExPie(Context context, EBrowserView arg1) {
 		super(context, arg1);
-		this.mainActivity = (Activity) context;
+		map_activity = new HashMap<String, View>();
 	}
 
 	@Override
@@ -49,11 +55,10 @@ public class EUExPie extends EUExBase {
 	}
 
 	public void open(String[] params) {
-		if (pieContext != null) {
+		opID = params[0];
+		if(map_activity.containsKey(opID)) {
 			return;
 		}
-		DisplayMetrics dm = mContext.getResources().getDisplayMetrics();
-		opID = params[0];
 		if (params[1].length() != 0) {
 			startX = Integer.parseInt(params[1]);
 		}
@@ -66,14 +71,14 @@ public class EUExPie extends EUExBase {
 		if (params[4].length() != 0) {
 			screenHeight = Integer.parseInt(params[4]);
 		}
-		mainActivity.runOnUiThread(new Runnable() {
-
+		((Activity)mContext).runOnUiThread(new Runnable() {
+			
 			@Override
 			public void run() {
 				LocalActivityManager mgr = ((ActivityGroup) mContext)
 						.getLocalActivityManager();
 				Intent intent = new Intent(mContext, PieActivity.class);
-				Window window = mgr.startActivity(TAG, intent);
+				Window window = mgr.startActivity(TAG + opID, intent);
 				pieContext = (PieActivity) window.getContext();
 				if (0 == screenWidth || 0 == screenHeight) {
 					Display display = pieContext.getWindowManager()
@@ -82,42 +87,55 @@ public class EUExPie extends EUExBase {
 					screenHeight = display.getHeight();
 				}
 				View pieDecorView = window.getDecorView();
-				theview = pieDecorView;
 				RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
 						screenWidth, screenHeight);
 				lp.leftMargin = startX;
 				lp.topMargin = startY;
-				addViewToCurrentWindow(pieDecorView, lp);
+				addView2CurrentWindow(pieDecorView, lp);
+				map_activity.put(opID, pieDecorView);
 			}
 		});
 
 		loadData(opID);
 	}
 
+	private void addView2CurrentWindow(View child, RelativeLayout.LayoutParams parms) {
+		int l = (int) (parms.leftMargin);
+		int t = (int) (parms.topMargin);
+		int w = parms.width;
+		int h = parms.height;
+		FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(w, h);
+		lp.gravity = Gravity.NO_GRAVITY;
+		lp.leftMargin = l;
+		lp.topMargin = t;
+		adptLayoutParams(parms, lp);
+		mBrwView.addViewToCurrentWindow(child, lp);
+	}
+	
 	public void loadData(String opID) {
 		jsCallback(functionName, Integer.parseInt(opID), 0, 0);
 		jsCallback(cbOpenFunName, Integer.parseInt(opID), 0, 0);
 	}
 
-	@SuppressWarnings("deprecation")
 	public void close(String[] params) {
-		if (null != pieContext) {
-			mainActivity.runOnUiThread(new Runnable() {
-				
-				@Override
-				public void run() {
-					LocalActivityManager mgr = ((ActivityGroup) mContext)
-							.getLocalActivityManager();
-					destroy(((ActivityGroup) mContext), TAG);
-					View mPieView = theview;
-					removeViewFromCurrentWindow(mPieView);
+		((Activity)mContext).runOnUiThread(new Runnable() {
+			
+			@Override
+			public void run() {
+				if (!map_activity.isEmpty()) {
+					Set<Entry<String,View>> entrySet = map_activity.entrySet();
+					Iterator<Entry<String, View>> iterator = entrySet.iterator();
+					while (iterator.hasNext()) {
+						Entry<String, View> entry = iterator.next();
+						String activityId = entry.getKey();
+						View view = entry.getValue();
+						destroy(((ActivityGroup) mContext), TAG+activityId);
+						removeViewFromCurrentWindow(view);
+					}
+					map_activity.clear();
 				}
-			});
-			
-			
-			pieContext = null;
-
-		}
+			}
+		});
 	}
 
 	public void setJsonData(String[] params) {
@@ -125,7 +143,7 @@ public class EUExPie extends EUExBase {
 			JSONObject json = new JSONObject(params[0]);
 			String jsonResult = json.getString("data");
 			final List<PieBean> pieList = PieUtility.parseData(jsonResult);
-			mainActivity.runOnUiThread(new Runnable() {
+			((Activity)mContext).runOnUiThread(new Runnable() {
 
 				@Override
 				public void run() {

@@ -1,8 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <uexplugins>
     <plugin
-        uexName="uexPie" version="3.0.1" build="1">
-        <info>1:修复饼状图打开后无法关闭的问题</info>
+        uexName="uexPie" version="3.0.4" build="4">
+		<info>4:更新适配机型使用的方法</info>
+		<build>3:修复按返回键崩溃的问题</build>
+		<build>2:修复多个饼状图不能并存显示的问题</build>
+        <build>1:修复饼状图打开后无法关闭的问题</build>
 		<build>0:饼状图功能插件</build>
     </plugin>
 </uexplugins>
